@@ -484,6 +484,13 @@
     letter-spacing: 0.05em;
   }
   .note-text { font-size: 13px; color: var(--text); line-height: 1.45; }
+  .note-contact { font-size: 11px; margin-top: 4px; }
+  .note-contact .contact-link {
+    color: var(--gold);
+    text-decoration: none;
+  }
+  .note-contact .contact-link:hover { text-decoration: underline; }
+  .edit-hint { font-size: 11px; color: var(--text-dim); margin-top: 8px; line-height: 1.4; }
   .no-notes { font-size: 12px; color: var(--text-dim); font-style: italic; margin-bottom: 10px; }
   .notes-form { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
   .notes-form input, .notes-form textarea {
@@ -741,6 +748,7 @@ function renderGrid() {
             <div class="notes-form">
               <a class="form-link" href="${FORM_URL}" target="_blank" rel="noopener noreferrer">📝 Add a note via Google Form</a>
               <div class="form-hint">Type exactly this in the Project field: <code>${p.name}</code></div>
+              <div class="edit-hint">Made a mistake? After submitting, Google Forms shows an "Edit your response" link on the confirmation page — use that to fix or update your note instead of resubmitting.</div>
             </div>
           </div>
         </div>
@@ -781,6 +789,16 @@ function fetchNotesCSV() {
     }));
 }
 
+function formatDateMDY(raw) {
+  if (!raw) return "";
+  const d = new Date(raw);
+  if (isNaN(d.getTime())) return raw; // couldn't parse — show whatever was there rather than break
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  return `${mm}/${dd}/${yyyy}`;
+}
+
 function parseCSV(text) {
   const rows = [];
   let row = [], field = "", inQuotes = false;
@@ -813,6 +831,8 @@ function loadRemoteNotes() {
       const iReviewer = header.indexOf("reviewer");
       const iDate = header.indexOf("date");
       const iNote = header.indexOf("note");
+      const iEmail = header.findIndex(h => h.includes("email"));
+      const iPhone = header.findIndex(h => h.includes("phone"));
       if (iProject === -1) return;
       PROJECTS.forEach(p => { p.notes = []; });
       rows.slice(1).forEach(r => {
@@ -825,8 +845,10 @@ function loadRemoteNotes() {
         if (!match) return;
         match.notes.push({
           author: (r[iReviewer] || "Anonymous").trim(),
-          date: (r[iDate] || "").trim(),
-          text: (r[iNote] || "").trim()
+          date: formatDateMDY((r[iDate] || "").trim()),
+          text: (r[iNote] || "").trim(),
+          email: iEmail > -1 ? (r[iEmail] || "").trim() : "",
+          phone: iPhone > -1 ? (r[iPhone] || "").trim() : ""
         });
       });
       renderGrid();
