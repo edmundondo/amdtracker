@@ -483,6 +483,17 @@
     text-transform: uppercase;
     letter-spacing: 0.05em;
   }
+  .nda-badge {
+    font-size: 9px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    margin-left: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .nda-badge.nda-yes { background: rgba(1,170,71,0.15); color: var(--green); }
+  .nda-badge.nda-no { background: rgba(229,72,77,0.15); color: var(--red); }
   .note-text { font-size: 13px; color: var(--text); line-height: 1.45; }
   .note-contact { font-size: 11px; margin-top: 4px; }
   .note-contact .contact-link {
@@ -766,14 +777,21 @@ function renderNotesHTML(notes) {
   if (!notes || notes.length === 0) {
     return `<div class="no-notes">No reviewer notes yet — be the first to add one.</div>`;
   }
-  return notes.map(n => `
+  return notes.map(n => {
+    let ndaBadge = "";
+    if (n.nda) {
+      const isYes = n.nda.toLowerCase().startsWith("y");
+      ndaBadge = `<span class="nda-badge ${isYes ? 'nda-yes' : 'nda-no'}">NDA: ${isYes ? '✓ Signed' : '✗ Not signed'}</span>`;
+    }
+    return `
     <div class="note-item">
       <div class="note-avatar">${n.author.trim().charAt(0).toUpperCase()}</div>
       <div class="note-body">
-        <div class="note-meta"><b>${n.author}</b> · ${n.date}${n.example ? '<span class="example-tag">Example</span>' : ''}</div>
+        <div class="note-meta"><b>${n.author}</b> · ${n.date}${n.example ? '<span class="example-tag">Example</span>' : ''} ${ndaBadge}</div>
         <div class="note-text">${n.text}</div>
       </div>
-    </div>`).join("");
+    </div>`;
+  }).join("");
 }
 
 const FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLScvjBbvgWGFmw_jG1MKosamwgCD4DPhHTkobUI075Y4zbPT0Q/viewform";
@@ -833,6 +851,7 @@ function loadRemoteNotes() {
       const iNote = header.indexOf("note");
       const iEmail = header.findIndex(h => h.includes("email"));
       const iPhone = header.findIndex(h => h.includes("phone"));
+      const iNda = header.findIndex(h => h.includes("nda"));
       if (iProject === -1) return;
       PROJECTS.forEach(p => { p.notes = []; });
       rows.slice(1).forEach(r => {
@@ -848,7 +867,8 @@ function loadRemoteNotes() {
           date: formatDateMDY((r[iDate] || "").trim()),
           text: (r[iNote] || "").trim(),
           email: iEmail > -1 ? (r[iEmail] || "").trim() : "",
-          phone: iPhone > -1 ? (r[iPhone] || "").trim() : ""
+          phone: iPhone > -1 ? (r[iPhone] || "").trim() : "",
+          nda: iNda > -1 ? (r[iNda] || "").trim() : ""
         });
       });
       renderGrid();
