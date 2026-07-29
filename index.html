@@ -532,8 +532,9 @@
 <script>
 const PROJECTS = [
   {
-    name: "Zim Gold Mine (Prifex)",
-    purpose: "Offtake/investment deal — Prifex Mining gold operation, Mazowe, Zimbabwe",
+    name: "Bots🇧🇼 /🇿🇼 Zim 2 /Off takers/Developers",
+    aliases: ["Zim Gold Mine (Prifex)"],
+    purpose: "Offtake/investment deal — Prifex Mining gold operation, Mazowe, Zimbabwe. NDA signed, drafting LOI/Term Sheet with Prefix-Swiss Meridian offtake partnership.",
     priority: "high",
     caution: false,
     whatsappLink: "https://chat.whatsapp.com/FDz8EHFXDaa5ULZljLEeHA?mode=gi_t",
@@ -549,10 +550,14 @@ const PROJECTS = [
       ["Review Prifex Mining overview doc (7pp)", "Y.Omar / Tanya", "done", "Shared by Omar, Tanya thanked"],
       ["Confirm Zimbabwe gold export protocol requirements", "Liam / Chico", "progress", "Liam: \"the Zim export protocols are the key\""],
       ["Review Executive Summary PDF", "Markus Schneider", "progress", "Shared 7/24, Markus traveling — review pending"],
+      ["Propose date/time for Zimbabwe site-visit (table talk) meeting", "Markus Schneider / Liam", "progress", "Tanya requested 7/27 (site visit, budget, machinery, inspections, timeline); Markus proposed LOI-first approach instead"],
+      ["Draft & share Letter of Intent (LOI) / Term Sheet", "Markus Schneider / Liam", "progress", "Liam: \"drafting LOI currently\" (7/29) — covers Prefix-Swiss Meridian offtake partnership"],
+      ["Provide active site(s) + average current production for LOI", "Chico / Tanya / Y.Omar", "notstarted", "Liam requested 7/29 to finalize LOI scope"],
     ]
   },
   {
-    name: "Peter Mine Project (Kasimure)",
+    name: "Peter Mine 🇿🇼Project (Kasimure)",
+    aliases: ["Peter Mine Project (Kasimure)"],
     purpose: "Kasimure Gold Prospect development — term sheet/LOI negotiation, Zimbabwe",
     priority: "high",
     caution: false,
@@ -567,7 +572,8 @@ const PROJECTS = [
     ]
   },
   {
-    name: "United Mines",
+    name: "United Mines 🇿🇼",
+    aliases: ["United Mines"],
     purpose: "Equipment-lease-for-offtake financing model (SMG) for Zimbabwe gold mines",
     priority: "medium",
     caution: false,
@@ -581,7 +587,8 @@ const PROJECTS = [
     ]
   },
   {
-    name: "Billy Leonardi Mine Projects",
+    name: "Billy Leonardi 🇿🇲 Mine Projects",
+    aliases: ["Billy Leonardi Mine Projects"],
     purpose: "Unsolicited gold off-take pitch (Zambia) + separate Uganda mine investment pitch",
     priority: "low",
     caution: true,
@@ -590,6 +597,20 @@ const PROJECTS = [
     tasks: [
       ["Verify gold off-take proposal before any advance payment", "Team", "notstarted", "Unsolicited request for 2–4kg advance gold payment before delivery"],
       ["Evaluate Uganda mine investment pitch", "Team", "notstarted", "Vague claims + political-connection name-dropping"],
+    ]
+  },
+  {
+    name: "Fidelity and Gold Mines🇿🇼",
+    aliases: ["Fidelity and Gold Mines"],
+    purpose: "Multi-mine gold offtake outreach — introducing several prospective mines to the offtake partnership model, via Fidelity contacts",
+    priority: "medium",
+    caution: false,
+    whatsappLink: null,
+    notes: [],
+    tasks: [
+      ["Explain partnership process (questionnaire → term sheet → LOI → formal agreement)", "Markus Schneider", "done", "Explained to Paul Bhebe 6/10"],
+      ["Send sample mine questionnaire to Paul Bhebe", "Markus Schneider", "progress", "Paul requested 6/10: \"send us the sample questioner\" — not yet confirmed sent"],
+      ["Identify & share info on first candidate mine", "Paul Bhebe", "progress", "Photo shared 6/17: \"This is the first one\"; acknowledged by Markus/Timothy, no further detail yet"],
     ]
   }
 ];
@@ -690,7 +711,7 @@ function statusLabel(s) {
 
 function matchesSearch(p) {
   if (!searchTerm) return true;
-  const haystack = [p.name, p.purpose, ...p.tasks.flatMap(t => [t[0], t[1], t[3]])]
+  const haystack = [p.name, p.purpose, ...(p.aliases || []), ...p.tasks.flatMap(t => [t[0], t[1], t[3]])]
     .join(" ").toLowerCase();
   return haystack.includes(searchTerm);
 }
@@ -857,10 +878,13 @@ function loadRemoteNotes() {
       rows.slice(1).forEach(r => {
         const projVal = (r[iProject] || "").trim();
         if (!projVal) return;
-        const match = PROJECTS.find(p =>
-          p.name.toLowerCase().includes(projVal.toLowerCase()) ||
-          projVal.toLowerCase().includes(p.name.toLowerCase())
-        );
+        const match = PROJECTS.find(p => {
+          const candidates = [p.name, ...(p.aliases || [])];
+          return candidates.some(name =>
+            name.toLowerCase().includes(projVal.toLowerCase()) ||
+            projVal.toLowerCase().includes(name.toLowerCase())
+          );
+        });
         if (!match) return;
         match.notes.push({
           author: (r[iReviewer] || "Anonymous").trim(),
