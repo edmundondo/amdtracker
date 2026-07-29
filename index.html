@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>Deal Tracker — WhatsApp Group Projects</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
 <div class="wrap">
@@ -25,6 +26,7 @@
     </div>
     <button class="pdf-btn" onclick="exportPDF()">📄 Export PDF Report</button>
     <button class="csv-btn" onclick="exportCSV()">📊 Export Excel (CSV)</button>
+    <button class="epub-btn" onclick="exportEPUB()">📚 Export EPUB</button>
     <button class="sync-btn" onclick="loadRemoteNotes()">🔄 Sync Reviewer Notes</button>
   </div>
 
@@ -386,6 +388,20 @@
   }
   .sync-btn:hover { background: rgba(212,160,23,0.28); }
 
+  .epub-btn {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    background: rgba(185,58,11,0.14);
+    color: #E8895F;
+    border: 1px solid #B93A0B;
+    border-radius: 8px;
+    padding: 10px 16px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background .15s ease;
+  }
+  .epub-btn:hover { background: rgba(185,58,11,0.28); }
+
   .form-link {
     display: inline-flex;
     align-items: center;
@@ -416,7 +432,7 @@
 
   @media print {
     body { background: #FFFFFF; color: #14171C; padding: 0; }
-    .search-wrap, .filters, .pdf-btn, .csv-btn, .sync-btn, .chevron, .wa-link, .notes-form { display: none !important; }
+    .search-wrap, .filters, .pdf-btn, .csv-btn, .epub-btn, .sync-btn, .chevron, .wa-link, .notes-form { display: none !important; }
     .print-meta {
       display: block;
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -753,7 +769,17 @@ function renderNotesHTML(notes) {
 }
 
 const FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLScvjBbvgWGFmw_jG1MKosamwgCD4DPhHTkobUI075Y4zbPT0Q/viewform";
-const NOTES_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSOuvMVx_CoI8JLrCroXxrclucg81jEoNoZIabzE8Mra38Y9OphfyPwVhy5FOy68T0CAgUh8f2O53X-/pub?output=csv";
+const NOTES_GVIZ_URL = "https://docs.google.com/spreadsheets/d/18wlWY20NFrGCCCS5tdS2DG-VzWS9PxsHkjNsV2hAHG8/gviz/tq?tqx=out:csv&sheet=Form_Responses";
+const NOTES_PUB_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSOuvMVx_CoI8JLrCroXxrclucg81jEoNoZIabzE8Mra38Y9OphfyPwVhy5FOy68T0CAgUh8f2O53X-/pub?output=csv";
+
+function fetchNotesCSV() {
+  return fetch(NOTES_GVIZ_URL)
+    .then(r => { if (!r.ok) throw new Error("gviz HTTP " + r.status); return r.text(); })
+    .catch(() => fetch(NOTES_PUB_CSV_URL).then(r => {
+      if (!r.ok) throw new Error("pub HTTP " + r.status);
+      return r.text();
+    }));
+}
 
 function parseCSV(text) {
   const rows = [];
@@ -778,11 +804,7 @@ function parseCSV(text) {
 }
 
 function loadRemoteNotes() {
-  fetch(NOTES_CSV_URL)
-    .then(r => {
-      if (!r.ok) throw new Error("HTTP " + r.status);
-      return r.text();
-    })
+  fetchNotesCSV()
     .then(text => {
       const rows = parseCSV(text);
       if (rows.length < 2) return;
@@ -848,6 +870,149 @@ function exportCSV() {
   const a = document.createElement("a");
   a.href = url;
   a.download = "Mining_Deal_Tracker_" + new Date().toISOString().slice(0,10) + ".csv";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function escXml(s) {
+  return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+const STATUS_COLOR = { done: "#01AA47", progress: "#B8860B", notstarted: "#C0392B" };
+
+function chapterXhtml(p) {
+  let cautionHtml = "";
+  if (p.caution) {
+    cautionHtml = `<div class="caution">&#9888; <strong>Caution:</strong> this group shows patterns commonly seen in advance-fee gold scams &#8212; unsolicited outreach, a request for payment/gold in advance of delivery, and unverifiable claims. Verify independently before committing anything.</div>`;
+  }
+  const rows = p.tasks.map(t => {
+    const [task, owner, status, note] = t;
+    const color = STATUS_COLOR[status] || "#333";
+    return `<tr><td>${escXml(task)}</td><td>${escXml(owner)}</td><td><span style="color:${color};font-weight:bold;">${escXml(statusLabel(status))}</span></td><td class="notes">${escXml(note)}</td></tr>`;
+  }).join("\n");
+  let notesHtml;
+  if (p.notes && p.notes.length) {
+    const items = p.notes.map(n => `<li><strong>${escXml(n.author)}</strong> (${escXml(n.date)}): ${escXml(n.text)}</li>`).join("\n");
+    notesHtml = `<h3>Reviewer Notes</h3><ul class="reviewer-notes">${items}</ul>`;
+  } else {
+    notesHtml = `<h3>Reviewer Notes</h3><p class="no-notes"><em>No reviewer notes yet.</em></p>`;
+  }
+  return `<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head><title>${escXml(p.name)}</title><link rel="stylesheet" type="text/css" href="style.css"/></head>
+<body>
+<h1>${escXml(p.name)}</h1>
+<p class="purpose">${escXml(p.purpose)}</p>
+<p class="badge">Priority: <strong>${escXml(p.priority)}</strong></p>
+${cautionHtml}
+<table>
+<thead><tr><th>Task</th><th>Owner</th><th>Status</th><th>Notes</th></tr></thead>
+<tbody>
+${rows}
+</tbody>
+</table>
+${notesHtml}
+</body>
+</html>`;
+}
+
+async function exportEPUB() {
+  const zip = new JSZip();
+  zip.file("mimetype", "application/epub+zip", { compression: "STORE" });
+
+  zip.folder("META-INF").file("container.xml", `<?xml version="1.0" encoding="UTF-8"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>`);
+
+  const oebps = zip.folder("OEBPS");
+  oebps.file("style.css", `
+body { font-family: Georgia, serif; margin: 1.2em; color: #1a1a1a; }
+h1 { font-size: 1.5em; border-bottom: 2px solid #B93A0B; padding-bottom: 6px; }
+.purpose { color: #555; font-style: italic; margin-top: 4px; }
+.badge { font-size: 0.9em; color: #B93A0B; }
+table { width: 100%; border-collapse: collapse; margin-top: 1em; font-size: 0.85em; }
+th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; vertical-align: top; }
+th { background: #f0f0f0; }
+.notes { color: #555; font-size: 0.9em; }
+.caution { background: #fdecea; border: 1px solid #e5484d; padding: 10px; margin: 10px 0; border-radius: 6px; }
+.reviewer-notes { padding-left: 1.2em; }
+.reviewer-notes li { margin-bottom: 8px; }
+.no-notes { color: #888; }
+`);
+
+  const now = new Date().toISOString();
+  oebps.file("titlepage.xhtml", `<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head><title>Deal Tracker</title><link rel="stylesheet" type="text/css" href="style.css"/></head>
+<body>
+<h1>Mining Deal Tracker</h1>
+<p class="purpose">WhatsApp Group &#8594; Project Tracker &#8212; snapshot report</p>
+<p>${PROJECTS.length} groups tracked as ${PROJECTS.length} live projects. Generated ${escXml(now)}.</p>
+</body>
+</html>`);
+
+  const chapters = [["titlepage.xhtml", "Deal Tracker"]];
+  PROJECTS.forEach((p, i) => {
+    const fname = `chapter${i+1}.xhtml`;
+    oebps.file(fname, chapterXhtml(p));
+    chapters.push([fname, p.name]);
+  });
+
+  let manifest = `<item id="style" href="style.css" media-type="text/css"/>\n<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>\n`;
+  let spine = "";
+  let navItems = "";
+  chapters.forEach((c, i) => {
+    const id = "item" + i;
+    manifest += `<item id="${id}" href="${c[0]}" media-type="application/xhtml+xml"/>\n`;
+    spine += `<itemref idref="${id}"/>\n`;
+    navItems += `<li><a href="${c[0]}">${escXml(c[1])}</a></li>\n`;
+  });
+
+  const bookUuid = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, ch => {
+    const r = Math.random() * 16 | 0, v = ch === "x" ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+
+  oebps.file("content.opf", `<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" unique-identifier="bookid" version="3.0">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:identifier id="bookid">urn:uuid:${bookUuid}</dc:identifier>
+    <dc:title>Mining Deal Tracker</dc:title>
+    <dc:language>en</dc:language>
+    <dc:creator>Deal Tracker Dashboard</dc:creator>
+    <meta property="dcterms:modified">${now}</meta>
+  </metadata>
+  <manifest>
+${manifest}  </manifest>
+  <spine>
+${spine}  </spine>
+</package>`);
+
+  oebps.file("nav.xhtml", `<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
+<head><title>Table of Contents</title></head>
+<body>
+<nav epub:type="toc" id="toc">
+<h1>Table of Contents</h1>
+<ol>
+${navItems}</ol>
+</nav>
+</body>
+</html>`);
+
+  const blob = await zip.generateAsync({ type: "blob", mimeType: "application/epub+zip" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "Mining_Deal_Tracker_" + new Date().toISOString().slice(0,10) + ".epub";
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
